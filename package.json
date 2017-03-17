@@ -1,0 +1,16 @@
+{
+  "name": "node_modules_patches",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "node_modules_patches": "index.js",
+    "nmp": "index.js"
+  },
+  "files": [],
+  "repository": "laggingreflex/node_modules_patches",
+  "dependencies": {
+    "diff": "^3.2.0",
+    "fs-promise": "^2.0.0"
+  }
+}
