@@ -11,6 +11,9 @@ const dest = cwd(process.argv[3] || 'node_modules')
 
 readDir(srcM).catch(console.error)
 
+const DIFFLEN = 100
+const DIFFLINES = 5
+
 async function readDir(src) {
   return await Promise.all((await fs.readdir(src)).map(async s => {
     const ss = path.join(src, s)
@@ -29,17 +32,28 @@ async function readDir(src) {
         if (!diff || !diff.length || !diff.find(d => d.added || d.removed)) {
           console.log(`Skipped: ${rl} (same contents)`)
         } else {
-          if (!(await fs.exists(dd + '.bkp'))) {
+          if (!(await fs.exists(dd + '.bkp')) && await fs.exists(dd)) {
             await fs.copy(dd, dd + '.bkp');
           }
           await fs.copy(ss, dd)
           console.log(`Copied: ${rl}`)
-          diff.forEach(d => {
+          diff.forEach((d, i) => {
+            if (i > DIFFLINES) {
+              return;
+            }
             let value = d.value.replace(/(?: |\r|\n)+/g, ' ').trim();
             if ((d.added || d.removed) && value.length) {
+              if (value.length > DIFFLEN) {
+                const a = value.substr(0, value.length / 2)
+                const b = value.substr(value.length / 2)
+                value = a.substr(0, (DIFFLEN / 2)) + ` ...[+${d.value.length-DIFFLEN} more chars]... ` + b.substr(-(DIFFLEN / 2))
+              }
               console.log(` `, d.added ? '+' : '-', value)
             }
           });
+          if (diff.length > DIFFLINES) {
+              console.log(`  + ${diff.length-DIFFLINES} more diffs`)
+          }
         }
       } catch (err) {
         err.message = `Couldn't copy: ${rl} -> ${dest}\n` + err.message;
