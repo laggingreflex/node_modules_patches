@@ -29,6 +29,9 @@ async function readDir(src) {
         if (!diff || !diff.length || !diff.find(d => d.added || d.removed)) {
           console.log(`Skipped: ${rl} (same contents)`)
         } else {
+          if (!(await fs.exists(dd + '.bkp'))) {
+            await fs.copy(dd, dd + '.bkp');
+          }
           await fs.copy(ss, dd)
           console.log(`Copied: ${rl}`)
           diff.forEach(d => {
