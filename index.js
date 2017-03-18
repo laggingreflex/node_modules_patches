@@ -9,17 +9,24 @@ const cwd = p => p && path.join(process.cwd(), p) || process.cwd()
 const srcM = cwd(process.argv[2] || 'node_modules_patches')
 const dest = cwd(process.argv[3] || 'node_modules')
 
-readDir(srcM).catch(console.error)
+const log = (...m) => console.log(`[node_modules_patches]`, ...m)
+const logError = (...m) => console.error(`[node_modules_patches] Error:`, ...m)
+
+readDir(srcM).then(({ skipped = [] } = {}) => {
+  if (skipped.length) {
+    log(`Skipped ${skipped.length} files`);
+  }
+}).catch(logError)
 
 const DIFFLEN = 100
 const DIFFLINES = 5
 
-async function readDir(src) {
+async function readDir(src, { skipped = [] } = {}) {
   return await Promise.all((await fs.readdir(src)).map(async s => {
     const ss = path.join(src, s)
     const stats = await fs.stat(ss)
     if (stats.isDirectory()) {
-      return readDir(ss)
+      return readDir(ss, { skipped })
     } else {
       const rl = path.relative(srcM, ss)
       const dd = path.join(dest, rl)
@@ -30,13 +37,14 @@ async function readDir(src) {
         ]);
         const diff = diffLines(dd_str, ss_str, { newlineIsToken: false });
         if (!diff || !diff.length || !diff.find(d => d.added || d.removed)) {
-          console.log(`Skipped: ${rl} (same contents)`)
+          skipped.push(rl)
+          // log(`Skipped: ${rl} (same contents)`)
         } else {
           if (!(await fs.exists(dd + '.bkp')) && await fs.exists(dd)) {
             await fs.copy(dd, dd + '.bkp');
           }
           await fs.copy(ss, dd)
-          console.log(`Copied: ${rl}`)
+          log(`Copied: ${rl}`)
           diff.forEach((d, i) => {
             if (i > DIFFLINES) {
               return;
@@ -48,11 +56,11 @@ async function readDir(src) {
                 const b = value.substr(value.length / 2)
                 value = a.substr(0, (DIFFLEN / 2)) + ` ...[+${d.value.length-DIFFLEN} more chars]... ` + b.substr(-(DIFFLEN / 2))
               }
-              console.log(` `, d.added ? '+' : '-', value)
+              log(` `, d.added ? '+' : '-', value)
             }
           });
           if (diff.length > DIFFLINES) {
-              console.log(`  + ${diff.length-DIFFLINES} more diffs`)
+            log(`  + ${diff.length-DIFFLINES} more diffs`)
           }
         }
       } catch (err) {
@@ -60,5 +68,5 @@ async function readDir(src) {
         throw err;
       }
     }
-  }));
+  })).then(() => ({ skipped }));
 }
